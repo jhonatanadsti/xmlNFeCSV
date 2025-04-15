@@ -248,9 +248,18 @@ def show_column_mapping(columns):
     return mapping
 
 def main():
-    st.set_page_config(page_title="NFe XML para CSV - Formato Tabular", layout="wide")
+    # Set page configuration with logo and new title
+    st.set_page_config(
+        page_title="Conversor XML-CSV Solution",
+        page_icon="Logo Solution.png",  # Use the logo as the page icon
+        layout="wide"
+    )
     
-    st.title("Conversor de NFe XML para CSV")
+    # Add logo to the sidebar
+    st.sidebar.image("Logo Solution.png", use_column_width=True)
+    
+    # Update the title
+    st.title("Conversor XML-CSV Solution")
     st.write("Faça upload de um arquivo XML de Nota Fiscal Eletrônica (NFe) para convertê-lo para CSV em formato tabular.")
     
     uploaded_file = st.file_uploader("Escolha um arquivo XML", type="xml")
@@ -301,7 +310,14 @@ def main():
                     col1, col2 = st.columns(2)
                     
                     with col1:
-                        st.markdown(create_download_link(df, "nfe_data.csv"), unsafe_allow_html=True)
+                        # Use st.download_button for CSV download
+                        csv_data = df.to_csv(index=False, sep=';', encoding='utf-8-sig')
+                        st.download_button(
+                            label="Download CSV File",
+                            data=csv_data,
+                            file_name="nfe_data.csv",
+                            mime="text/csv"
+                        )
                     
                     with col2:
                         # Option to generate Excel file instead
