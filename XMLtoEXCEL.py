@@ -256,7 +256,7 @@ def main():
     )
     
     # Add logo to the sidebar
-    st.sidebar.image("Logo Solution.png", use_column_width=True)
+    st.sidebar.image("Logo Solution.png", use_container_width=True)  # Updated parameter
     
     # Update the title
     st.title("Conversor XML-CSV Solution")
