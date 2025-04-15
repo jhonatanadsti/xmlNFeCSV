@@ -318,46 +318,6 @@ def main():
                             file_name="nfe_data.csv",
                             mime="text/csv"
                         )
-                    
-                    with col2:
-                        # Option to generate Excel file instead
-                        buffer = io.BytesIO()
-                        with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
-                            df.to_excel(writer, sheet_name='NFe Data', index=False)
-                        buffer.seek(0)
-                        
-                        st.download_button(
-                            label="Download Excel File",
-                            data=buffer,
-                            file_name="nfe_data.xlsx",
-                            mime="application/vnd.ms-excel"
-                        )
-                    
-                    # Display additional statistics
-                    st.subheader("Resumo da Nota Fiscal")
-                    col1, col2, col3 = st.columns(3)
-                    
-                    with col1:
-                        st.metric("Número da NF", df['nf_numnota'].iloc[0])
-                        st.metric("Data de Emissão", df['nf_dt_emissao'].iloc[0])
-                    
-                    with col2:
-                        st.metric("Valor Total", f"R$ {float(df['nf_valor_total'].iloc[0]):,.2f}")
-                        st.metric("Valor Total Produtos", f"R$ {float(df['nf_valor_total_prod'].iloc[0]):,.2f}")
-                    
-                    with col3:
-                        st.metric("Valor ICMS", f"R$ {float(df['nf_valor_icms'].iloc[0]):,.2f}")
-                        st.metric("Número de Itens", len(df))
-                    
-                    # Display additional information
-                    with st.expander("Detalhes da Nota Fiscal"):
-                        st.write(f"**Fornecedor:** {df['forn_razao'].iloc[0]} (CNPJ: {df['forn_cnpj'].iloc[0]})")
-                        st.write(f"**Cliente:** {df['cli_razao'].iloc[0]} (CNPJ: {df['cli_cnpj'].iloc[0]})")
-                        st.write(f"**CFOP:** {df['nf_cfop'].iloc[0]}")
-                        if df['nf_obs'].iloc[0]:
-                            st.write(f"**Observações:** {df['nf_obs'].iloc[0]}")
-                else:
-                    st.error("Falha ao analisar os dados XML. Verifique se é um arquivo XML de NFe válido.")
         
         except Exception as e:
             st.error(f"Erro ao processar o arquivo: {str(e)}")
