@@ -164,50 +164,32 @@ def generate_csv(data):
     
     df = pd.DataFrame(data)
     
-    # Order columns as requested (Coluna A, B, C, etc.)
+    # Select only the specified columns
     columns = [
-        'nf_numnota',      # Coluna A
-        'nf_serie',        # Coluna B
-        'nf_dt_emissao',   # Coluna C
-        'nf_hora',         # Coluna D
-        'nf_dt_entrada',   # Coluna E
-        'nf_horaentrada',  # Coluna F
-        'nf_cfop',         # Coluna G
-        'nf_obs',          # Coluna H
-        'nf_base_icms',    # Coluna I
-        'nf_valor_icms',   # Coluna J
-        'nf_valor_total',  # Coluna K
-        'nf_valor_total_prod', # Coluna L
-        'cli_razao',       # Coluna M
-        'cli_cnpj',        # Coluna N
-        'cli_ie',          # Coluna O
-        'cli_endereco',    # Coluna P
-        'cli_bairro',      # Coluna Q
-        'cli_cidade',      # Coluna R
-        'cli_uf',          # Coluna S
-        'cli_cep',         # Coluna T
-        'forn_razao',      # Coluna U
-        'forn_cnpj',       # Coluna V
-        'forn_ie',         # Coluna W
-        'forn_endereco',   # Coluna X
-        'forn_bairro',     # Coluna Y
-        'forn_cidade',     # Coluna Z
-        'forn_uf',         # Coluna AA
-        'forn_cep',        # Coluna AB
-        'item_codigo',     # Coluna AC
-        'item_descricao',  # Coluna AD
-        'item_ncm',        # Coluna AE
-        'item_un',         # Coluna AF
-        'item_qtde',       # Coluna AG
-        'item_lote',       # Coluna AH
-        'item_serial',     # Coluna AI
-        'item_modelo',     # Coluna AJ
-        'item_valor_unit', # Coluna AK
-        'item_valor_total', # Coluna AL
-        'item_valor_icms', # Coluna AM
-        'item_valor_ipi',  # Coluna AN
-        'item_aliq_icms',  # Coluna AO
-        'item_aliq_ipi'    # Coluna AP
+        'nf_numnota',      # Número da Nota Fiscal
+        'nf_serie',        # Série da Nota Fiscal
+        'nf_cfop',         # CFOP
+        'nf_obs',          # Observações
+        'nf_base_icms',    # Base ICMS
+        'nf_valor_icms',   # Valor ICMS
+        'nf_valor_total',  # Valor Total
+        'nf_valor_total_prod', # Valor Total dos Produtos
+        'forn_razao',      # Razão Social do Fornecedor
+        'forn_cnpj',       # CNPJ do Fornecedor
+        'forn_ie',         # Inscrição Estadual do Fornecedor
+        'forn_endereco',   # Endereço do Fornecedor
+        'forn_bairro',     # Bairro do Fornecedor
+        'forn_cidade',     # Cidade do Fornecedor
+        'forn_uf',         # UF do Fornecedor
+        'forn_cep',        # CEP do Fornecedor
+        'item_codigo',     # Código do Item
+        'item_descricao',  # Descrição do Item
+        'item_ncm',        # NCM do Item
+        'item_un',         # Unidade do Item
+        'item_qtde',       # Quantidade do Item
+        'item_lote',       # Lote do Item
+        'item_valor_unit', # Valor Unitário do Item
+        'item_valor_total' # Valor Total do Item
     ]
     
     # Ensure all columns exist (with empty values if needed)
@@ -217,6 +199,16 @@ def generate_csv(data):
     
     # Reorder columns to ensure they appear in the CSV in the correct order
     df = df[columns]
+    
+    # Format numeric columns to replace '.' with ',' for decimal separator
+    numeric_columns = [
+        'nf_base_icms', 'nf_valor_icms', 'nf_valor_total', 
+        'nf_valor_total_prod', 'item_valor_unit', 'item_valor_total', 'item_qtde'
+    ]
+    for col in numeric_columns:
+        if col in df.columns:
+            # Replace '.' with ',' without changing the structure of the number
+            df[col] = df[col].astype(str).str.replace('.', ',', regex=False)
     
     return df
 
@@ -264,28 +256,6 @@ def main():
     
     uploaded_file = st.file_uploader("Escolha um arquivo XML", type="xml")
     
-    # Define column order
-    columns = [
-        'nf_numnota', 'nf_serie', 'nf_dt_emissao', 'nf_hora', 
-        'nf_dt_entrada', 'nf_horaentrada', 'nf_cfop', 'nf_obs', 
-        'nf_base_icms', 'nf_valor_icms', 'nf_valor_total', 'nf_valor_total_prod',
-        'cli_razao', 'cli_cnpj', 'cli_ie', 'cli_endereco', 'cli_bairro', 
-        'cli_cidade', 'cli_uf', 'cli_cep',
-        'forn_razao', 'forn_cnpj', 'forn_ie', 'forn_endereco', 'forn_bairro', 
-        'forn_cidade', 'forn_uf', 'forn_cep',
-        'item_codigo', 'item_descricao', 'item_ncm', 'item_un', 'item_qtde', 
-        'item_lote', 'item_serial', 'item_modelo', 'item_valor_unit', 
-        'item_valor_total', 'item_valor_icms', 'item_valor_ipi', 
-        'item_aliq_icms', 'item_aliq_ipi'
-    ]
-    
-    # Show column mapping in expandable section
-    with st.expander("Ver mapeamento de colunas"):
-        st.write("O arquivo CSV gerado terá as seguintes colunas na ordem (equivalentes a colunas do Excel):")
-        mapping = show_column_mapping(columns)
-        for i, map_item in enumerate(mapping):
-            st.write(map_item)
-    
     if uploaded_file is not None:
         try:
             # Read XML content
@@ -318,6 +288,22 @@ def main():
                             file_name="nfe_data.csv",
                             mime="text/csv"
                         )
+                    
+                    with col2:
+                        # Option to generate Excel file instead
+                        buffer = io.BytesIO()
+                        with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
+                            df.to_excel(writer, sheet_name='NFe Data', index=False)
+                        buffer.seek(0)
+                        
+                        st.download_button(
+                            label="Download Excel File",
+                            data=buffer,
+                            file_name="nfe_data.xlsx",
+                            mime="application/vnd.ms-excel"
+                        )
+                else:
+                    st.error("Falha ao analisar os dados XML. Verifique se é um arquivo XML de NFe válido.")
         
         except Exception as e:
             st.error(f"Erro ao processar o arquivo: {str(e)}")
