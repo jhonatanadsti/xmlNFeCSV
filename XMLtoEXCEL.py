@@ -289,19 +289,6 @@ def main():
                             mime="text/csv"
                         )
                     
-                    with col2:
-                        # Option to generate Excel file instead
-                        buffer = io.BytesIO()
-                        with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
-                            df.to_excel(writer, sheet_name='NFe Data', index=False)
-                        buffer.seek(0)
-                        
-                        st.download_button(
-                            label="Download Excel File",
-                            data=buffer,
-                            file_name="nfe_data.xlsx",
-                            mime="application/vnd.ms-excel"
-                        )
                 else:
                     st.error("Falha ao analisar os dados XML. Verifique se é um arquivo XML de NFe válido.")
         
