@@ -230,7 +230,7 @@ def generate_csv(data):
     
     # Ensure specific columns are treated as text
     text_columns = [
-        'forn_cnpj', 'forn_ie', 'forn_razao', 
+        'forn_razao', 
         'forn_endereco', 'forn_bairro', 'forn_cidade', 
         'item_descricao', 'cli_razao', 'cli_cnpj', 'cli_ie', 
         'cli_endereco', 'cli_bairro', 'cli_cidade'
@@ -238,6 +238,9 @@ def generate_csv(data):
     for col in text_columns:
         if col in df.columns:
             df[col] = df[col].astype(str)
+    
+    # Remove explicit formatting for `forn_cnpj` and `forn_ie`
+    # These columns will retain their original format from the XML
     
     # Format numeric columns to replace '.' with ',' for decimal separator
     numeric_columns = [
