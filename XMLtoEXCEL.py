@@ -39,10 +39,20 @@ def parse_nfe_xml(xml_content):
     
     # Extract general invoice information
     ide = inf_nfe.find('.//nfe:ide', ns)
-    emit = inf_nfe.find('.//nfe:emit', ns)
+    emit = inf_nfe.find('.//nfe:emit', ns)  # Fornecedor (emitente)
     dest = inf_nfe.find('.//nfe:dest', ns)
     total = inf_nfe.find('.//nfe:total/nfe:ICMSTot', ns)
-    
+
+    # Extract supplier (fornecedor) information
+    forn_razao = emit.find('nfe:xNome', ns).text if emit.find('nfe:xNome', ns) is not None else ""
+    forn_cnpj = emit.find('nfe:CNPJ', ns).text if emit.find('nfe:CNPJ', ns) is not None else ""
+    forn_ie = emit.find('nfe:IE', ns).text if emit.find('nfe:IE', ns) is not None else ""
+    forn_endereco = emit.find('.//nfe:enderEmit/nfe:xLgr', ns).text if emit.find('.//nfe:enderEmit/nfe:xLgr', ns) is not None else ""
+    forn_bairro = emit.find('.//nfe:enderEmit/nfe:xBairro', ns).text if emit.find('.//nfe:enderEmit/nfe:xBairro', ns) is not None else ""
+    forn_cidade = emit.find('.//nfe:enderEmit/nfe:xMun', ns).text if emit.find('.//nfe:enderEmit/nfe:xMun', ns) is not None else ""
+    forn_uf = emit.find('.//nfe:enderEmit/nfe:UF', ns).text if emit.find('.//nfe:enderEmit/nfe:UF', ns) is not None else ""
+    forn_cep = emit.find('.//nfe:enderEmit/nfe:CEP', ns).text if emit.find('.//nfe:enderEmit/nfe:CEP', ns) is not None else ""
+
     # Get emission date and time
     dhEmi = ide.find('nfe:dhEmi', ns).text if ide.find('nfe:dhEmi', ns) is not None else ""
     dt_emissao = ""
@@ -60,11 +70,11 @@ def parse_nfe_xml(xml_content):
     invoice_data = {
         'nf_numnota': ide.find('nfe:nNF', ns).text if ide.find('nfe:nNF', ns) is not None else "",
         'nf_serie': ide.find('nfe:serie', ns).text if ide.find('nfe:serie', ns) is not None else "",
-        'nf_dt_emissao': dt_emissao,
-        'nf_hora': hora_emissao,
-        'nf_dt_entrada': dt_emissao,  # Using emission date as entry date (not always provided in XML)
-        'nf_horaentrada': hora_emissao,  # Using emission time as entry time (not always provided in XML)
-        'nf_cfop': "",  # Will be filled from items
+        'nf_dt_emissao': "",  # Ensure empty
+        'nf_hora': "",        # Ensure empty
+        'nf_dt_entrada': "",  # Ensure empty
+        'nf_horaentrada': "", # Ensure empty
+        'nf_cfop': "",        # Will be filled from items
         'nf_obs': inf_nfe.find('.//nfe:infAdic/nfe:infCpl', ns).text if inf_nfe.find('.//nfe:infAdic/nfe:infCpl', ns) is not None else "",
         'nf_base_icms': total.find('nfe:vBC', ns).text if total.find('nfe:vBC', ns) is not None else "0",
         'nf_valor_icms': total.find('nfe:vICMS', ns).text if total.find('nfe:vICMS', ns) is not None else "0",
@@ -72,24 +82,24 @@ def parse_nfe_xml(xml_content):
         'nf_valor_total_prod': total.find('nfe:vProd', ns).text if total.find('nfe:vProd', ns) is not None else "0",
         
         # Client information
-        'cli_razao': dest.find('nfe:xNome', ns).text if dest.find('nfe:xNome', ns) is not None else "",
-        'cli_cnpj': dest.find('nfe:CNPJ', ns).text if dest.find('nfe:CNPJ', ns) is not None else (dest.find('nfe:CPF', ns).text if dest.find('nfe:CPF', ns) is not None else ""),
-        'cli_ie': dest.find('nfe:IE', ns).text if dest.find('nfe:IE', ns) is not None else "",
-        'cli_endereco': f"{dest.find('.//nfe:enderDest/nfe:xLgr', ns).text} {dest.find('.//nfe:enderDest/nfe:nro', ns).text}" if dest.find('.//nfe:enderDest/nfe:xLgr', ns) is not None else "",
-        'cli_bairro': dest.find('.//nfe:enderDest/nfe:xBairro', ns).text if dest.find('.//nfe:enderDest/nfe:xBairro', ns) is not None else "",
-        'cli_cidade': dest.find('.//nfe:enderDest/nfe:xMun', ns).text if dest.find('.//nfe:enderDest/nfe:xMun', ns) is not None else "",
-        'cli_uf': dest.find('.//nfe:enderDest/nfe:UF', ns).text if dest.find('.//nfe:enderDest/nfe:UF', ns) is not None else "",
-        'cli_cep': dest.find('.//nfe:enderDest/nfe:CEP', ns).text if dest.find('.//nfe:enderDest/nfe:CEP', ns) is not None else "",
-        
-        # Supplier information
-        'forn_razao': emit.find('nfe:xNome', ns).text if emit.find('nfe:xNome', ns) is not None else "",
-        'forn_cnpj': emit.find('nfe:CNPJ', ns).text if emit.find('nfe:CNPJ', ns) is not None else (emit.find('nfe:CPF', ns).text if emit.find('nfe:CPF', ns) is not None else ""),
-        'forn_ie': emit.find('nfe:IE', ns).text if emit.find('nfe:IE', ns) is not None else "",
-        'forn_endereco': f"{emit.find('.//nfe:enderEmit/nfe:xLgr', ns).text} {emit.find('.//nfe:enderEmit/nfe:nro', ns).text}" if emit.find('.//nfe:enderEmit/nfe:xLgr', ns) is not None else "",
-        'forn_bairro': emit.find('.//nfe:enderEmit/nfe:xBairro', ns).text if emit.find('.//nfe:enderEmit/nfe:xBairro', ns) is not None else "",
-        'forn_cidade': emit.find('.//nfe:enderEmit/nfe:xMun', ns).text if emit.find('.//nfe:enderEmit/nfe:xMun', ns) is not None else "",
-        'forn_uf': emit.find('.//nfe:enderEmit/nfe:UF', ns).text if emit.find('.//nfe:enderEmit/nfe:UF', ns) is not None else "",
-        'forn_cep': emit.find('.//nfe:enderEmit/nfe:CEP', ns).text if emit.find('.//nfe:enderEmit/nfe:CEP', ns) is not None else "",
+        'cli_razao': "",      # Ensure empty
+        'cli_cnpj': "",       # Ensure empty
+        'cli_ie': "",         # Ensure empty
+        'cli_endereco': "",   # Ensure empty
+        'cli_bairro': "",     # Ensure empty
+        'cli_cidade': "",     # Ensure empty
+        'cli_uf': "",         # Ensure empty
+        'cli_cep': "",        # Ensure empty
+
+        # Supplier (fornecedor) information
+        'forn_razao': forn_razao,
+        'forn_cnpj': forn_cnpj,
+        'forn_ie': forn_ie,
+        'forn_endereco': forn_endereco,
+        'forn_bairro': forn_bairro,
+        'forn_cidade': forn_cidade,
+        'forn_uf': forn_uf,
+        'forn_cep': forn_cep,
     }
     
     # Extract items
@@ -141,14 +151,14 @@ def parse_nfe_xml(xml_content):
             'item_un': prod.find('nfe:uCom', ns).text if prod.find('nfe:uCom', ns) is not None else "",
             'item_qtde': prod.find('nfe:qCom', ns).text if prod.find('nfe:qCom', ns) is not None else "0",
             'item_lote': lote,
-            'item_serial': "",  # Not usually specified in NFe
-            'item_modelo': "",  # Not usually specified in NFe
+            'item_serial': "",     # Ensure empty
+            'item_modelo': "",     # Ensure empty
             'item_valor_unit': prod.find('nfe:vUnCom', ns).text if prod.find('nfe:vUnCom', ns) is not None else "0",
             'item_valor_total': prod.find('nfe:vProd', ns).text if prod.find('nfe:vProd', ns) is not None else "0",
-            'item_valor_icms': icms_values.get('vICMS', "0"),
-            'item_valor_ipi': ipi_values.get('vIPI', "0"),
-            'item_aliq_icms': icms_values.get('pICMS', "0"),
-            'item_aliq_ipi': ipi_values.get('pIPI', "0"),
+            'item_valor_icms': "", # Ensure empty
+            'item_valor_ipi': "",  # Ensure empty
+            'item_aliq_icms': "",  # Ensure empty
+            'item_aliq_ipi': "",   # Ensure empty
         }
         
         items.append({**invoice_data, **item})
@@ -168,12 +178,24 @@ def generate_csv(data):
     columns = [
         'nf_numnota',      # Número da Nota Fiscal
         'nf_serie',        # Série da Nota Fiscal
+        'nf_dt_emissao',   # Data de Emissão
+        'nf_hora',         # Hora de Emissão
+        'nf_dt_entrada',   # Data de Entrada
+        'nf_horaentrada',  # Hora de Entrada
         'nf_cfop',         # CFOP
         'nf_obs',          # Observações
         'nf_base_icms',    # Base ICMS
         'nf_valor_icms',   # Valor ICMS
         'nf_valor_total',  # Valor Total
         'nf_valor_total_prod', # Valor Total dos Produtos
+        'cli_razao',       # Razão Social do Cliente
+        'cli_cnpj',        # CNPJ do Cliente
+        'cli_ie',          # Inscrição Estadual do Cliente
+        'cli_endereco',    # Endereço do Cliente
+        'cli_bairro',      # Bairro do Cliente
+        'cli_cidade',      # Cidade do Cliente
+        'cli_uf',          # UF do Cliente
+        'cli_cep',         # CEP do Cliente
         'forn_razao',      # Razão Social do Fornecedor
         'forn_cnpj',       # CNPJ do Fornecedor
         'forn_ie',         # Inscrição Estadual do Fornecedor
@@ -188,8 +210,14 @@ def generate_csv(data):
         'item_un',         # Unidade do Item
         'item_qtde',       # Quantidade do Item
         'item_lote',       # Lote do Item
+        'item_serial',     # Serial do Item
+        'item_modelo',     # Modelo do Item
         'item_valor_unit', # Valor Unitário do Item
-        'item_valor_total' # Valor Total do Item
+        'item_valor_total',# Valor Total do Item
+        'item_valor_icms', # Valor ICMS do Item
+        'item_valor_ipi',  # Valor IPI do Item
+        'item_aliq_icms',  # Alíquota ICMS do Item
+        'item_aliq_ipi'    # Alíquota IPI do Item
     ]
     
     # Ensure all columns exist (with empty values if needed)
@@ -200,10 +228,23 @@ def generate_csv(data):
     # Reorder columns to ensure they appear in the CSV in the correct order
     df = df[columns]
     
+    # Ensure specific columns are treated as text
+    text_columns = [
+        'forn_cnpj', 'forn_ie', 'forn_razao', 
+        'forn_endereco', 'forn_bairro', 'forn_cidade', 
+        'item_descricao', 'cli_razao', 'cli_cnpj', 'cli_ie', 
+        'cli_endereco', 'cli_bairro', 'cli_cidade'
+    ]
+    for col in text_columns:
+        if col in df.columns:
+            df[col] = df[col].astype(str)
+    
     # Format numeric columns to replace '.' with ',' for decimal separator
     numeric_columns = [
         'nf_base_icms', 'nf_valor_icms', 'nf_valor_total', 
-        'nf_valor_total_prod', 'item_valor_unit', 'item_valor_total', 'item_qtde'
+        'nf_valor_total_prod', 'item_valor_unit', 'item_valor_total', 
+        'item_qtde', 'item_valor_icms', 'item_valor_ipi', 
+        'item_aliq_icms', 'item_aliq_ipi'
     ]
     for col in numeric_columns:
         if col in df.columns:
@@ -289,6 +330,19 @@ def main():
                             mime="text/csv"
                         )
                     
+                    with col2:
+                        # Option to generate Excel file instead
+                        buffer = io.BytesIO()
+                        with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
+                            df.to_excel(writer, sheet_name='NFe Data', index=False)
+                        buffer.seek(0)
+                        
+                        st.download_button(
+                            label="Download Excel File",
+                            data=buffer,
+                            file_name="nfe_data.xlsx",
+                            mime="application/vnd.ms-excel"
+                        )
                 else:
                     st.error("Falha ao analisar os dados XML. Verifique se é um arquivo XML de NFe válido.")
         
