@@ -287,58 +287,74 @@ def main():
     # Set page configuration with logo and new title
     st.set_page_config(
         page_title="Conversor XML-CSV Solution",
-        page_icon="Logo Solution.png",  # Use the logo as the page icon
+        page_icon="Logo Solution.png",
         layout="wide"
     )
     
     # Add logo to the sidebar
-    st.sidebar.image("Logo Solution.png", use_container_width=True)  # Updated parameter
+    st.sidebar.image("Logo Solution.png", use_container_width=True)
     
     # Update the title
     st.title("Conversor XML-CSV Solution")
-    st.write("Faça upload de um arquivo XML de Nota Fiscal Eletrônica (NFe) para convertê-lo para CSV em formato tabular.")
+    st.write("Faça upload de arquivos XML de Nota Fiscal Eletrônica (NFe) para convertê-los para CSV em formato tabular.")
     
-    uploaded_file = st.file_uploader("Escolha um arquivo XML", type="xml")
+    # Allow multiple file uploads
+    uploaded_files = st.file_uploader("Escolha os arquivos XML", type="xml", accept_multiple_files=True)
     
-    if uploaded_file is not None:
+    if uploaded_files:
         try:
-            # Read XML content
-            xml_content = uploaded_file.read().decode('utf-8')
+            all_data = []  # List to store data from all XML files
             
-            # Clean XML content (remove BOM if present)
-            xml_content = re.sub(r'^\xef\xbb\xbf', '', xml_content)
+            # Load laborlog.xlsx for comparison
+            laborlog_path = "laborlog.xlsx"  # Ensure this file exists in the same directory
+            laborlog_df = pd.read_excel(laborlog_path)
             
-            with st.spinner("Processando arquivo XML..."):
-                # Parse XML and generate dataframe
-                parsed_data = parse_nfe_xml(xml_content)
+            # Iterate over uploaded files
+            for uploaded_file in uploaded_files:
+                # Read XML content
+                xml_content = uploaded_file.read().decode('utf-8')
                 
-                if parsed_data:
-                    df = generate_csv(parsed_data)
+                # Clean XML content (remove BOM if present)
+                xml_content = re.sub(r'^\xef\xbb\xbf', '', xml_content)
+                
+                with st.spinner(f"Processando arquivo {uploaded_file.name}..."):
+                    # Parse XML and generate data
+                    parsed_data = parse_nfe_xml(xml_content)
                     
-                    # Display sample of data in tabular format
-                    st.subheader("Visualização dos Dados Convertidos")
-                    st.dataframe(df.head(10))
-                    
-                    # Display download options
-                    st.subheader("Download")
-                    col1, col2 = st.columns(2)
-                    
-                    with col1:
-                        # Use st.download_button for CSV download
-                        csv_data = df.to_csv(index=False, sep=';', encoding='utf-8-sig')
-                        st.download_button(
-                            label="Download CSV File",
-                            data=csv_data,
-                            file_name="nfe_data.csv",
-                            mime="text/csv"
-                        )
-                    
-                else:
-                    st.error("Falha ao analisar os dados XML. Verifique se é um arquivo XML de NFe válido.")
+                    if parsed_data:
+                        all_data.extend(parsed_data)
+                    else:
+                        st.error(f"Falha ao analisar o arquivo {uploaded_file.name}. Verifique se é um arquivo XML de NFe válido.")
+            
+            if all_data:
+                # Generate DataFrame from all parsed data
+                df = generate_csv(all_data)
+                
+                # Perform "PROCV" operation
+                if 'EAN' in laborlog_df.columns and 'CÓD. LABORLOG' in laborlog_df.columns:
+                    ean_to_cod = laborlog_df.set_index('EAN')['CÓD. LABORLOG'].to_dict()
+                    # Map 'forn_ie' to 'item_codigo' and replace missing values with "ERRO"
+                    df['item_codigo'] = df['forn_ie'].map(ean_to_cod).fillna("ERRO")
+                
+                # Display sample of data in tabular format
+                st.subheader("Visualização dos Dados Convertidos")
+                st.dataframe(df.head(10))
+                
+                # Display download options
+                st.subheader("Download")
+                csv_data = df.to_csv(index=False, sep=';', encoding='utf-8-sig')
+                st.download_button(
+                    label="Download CSV File",
+                    data=csv_data,
+                    file_name="nfe_data.csv",
+                    mime="text/csv"
+                )
+            else:
+                st.error("Nenhum dado válido foi extraído dos arquivos XML.")
         
         except Exception as e:
-            st.error(f"Erro ao processar o arquivo: {str(e)}")
-            st.write("Certifique-se de que está enviando um arquivo XML de NFe válido.")
+            st.error(f"Erro ao processar os arquivos: {str(e)}")
+            st.write("Certifique-se de que está enviando arquivos XML de NFe válidos e que o arquivo laborlog.xlsx está presente.")
 
 if __name__ == "__main__":
     main()
