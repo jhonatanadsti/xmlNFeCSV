@@ -143,9 +143,13 @@ def parse_nfe_xml(xml_content):
         if cfop and not invoice_data['nf_cfop']:
             invoice_data['nf_cfop'] = cfop
         
+        # Extrair o código EAN do produto
+        ean = prod.find('nfe:cEAN', ns).text if prod.find('nfe:cEAN', ns) is not None else ""
+        
         # Extract product data
         item = {
             'item_codigo': prod.find('nfe:cProd', ns).text if prod.find('nfe:cProd', ns) is not None else "",
+            'item_ean': ean,  # Armazenar o EAN para uso posterior no PROCV
             'item_descricao': prod.find('nfe:xProd', ns).text if prod.find('nfe:xProd', ns) is not None else "",
             'item_ncm': prod.find('nfe:NCM', ns).text if prod.find('nfe:NCM', ns) is not None else "",
             'item_un': prod.find('nfe:uCom', ns).text if prod.find('nfe:uCom', ns) is not None else "",
@@ -239,9 +243,6 @@ def generate_csv(data):
         if col in df.columns:
             df[col] = df[col].astype(str)
     
-    # Remove explicit formatting for `forn_cnpj` and `forn_ie`
-    # These columns will retain their original format from the XML
-    
     # Format numeric columns to replace '.' with ',' for decimal separator
     numeric_columns = [
         'nf_base_icms', 'nf_valor_icms', 'nf_valor_total', 
@@ -260,8 +261,6 @@ def create_download_link(df, filename="nfe_data.csv"):
     """
     Create a download link for the dataframe.
     """
-    # Use index=False to prevent extra column with row numbers
-    # sep=';' to ensure proper separation for Brazilian CSV format
     csv = df.to_csv(index=False, sep=';', encoding='utf-8-sig')
     b64 = base64.b64encode(csv.encode()).decode()
     href = f'<a href="data:file/csv;base64,{b64}" download="{filename}">Download CSV File</a>'
@@ -272,7 +271,6 @@ def show_column_mapping(columns):
     Display the mapping of columns to Excel-style column letters.
     """
     excel_cols = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z']
-    # For columns after Z: AA, AB, AC, etc.
     for i in range(26, 100):
         letter = excel_cols[i // 26 - 1] + excel_cols[i % 26]
         excel_cols.append(letter)
@@ -305,20 +303,32 @@ def main():
         try:
             all_data = []  # List to store data from all XML files
             
-            # Load laborlog.xlsx for comparison
-            laborlog_path = "laborlog.xlsx"  # Ensure this file exists in the same directory
-            laborlog_df = pd.read_excel(laborlog_path)
-            
-            # Iterate over uploaded files
-            for uploaded_file in uploaded_files:
-                # Read XML content
-                xml_content = uploaded_file.read().decode('utf-8')
+            # Carregar o arquivo laborlog.xlsx
+            laborlog_path = "laborlog.xlsx"
+            try:
+                # Carregar a planilha laborlog.xlsx explicitamente definindo os tipos de coluna
+                laborlog_df = pd.read_excel(laborlog_path, dtype={'EAN': str, 'CÓD. LABORLOG': str})
+                st.success(f"Arquivo laborlog.xlsx carregado com sucesso. {len(laborlog_df)} registros encontrados.")
                 
-                # Clean XML content (remove BOM if present)
+                # Criar um dicionário para o PROCV: EAN -> CÓD. LABORLOG
+                ean_to_codigo = {}
+                for index, row in laborlog_df.iterrows():
+                    if pd.notna(row['EAN']) and pd.notna(row['CÓD. LABORLOG']):
+                        ean_to_codigo[str(row['EAN']).strip()] = str(row['CÓD. LABORLOG']).strip()
+                
+                st.info(f"Mapeamento de {len(ean_to_codigo)} códigos EAN para CÓD. LABORLOG preparado.")
+                
+            except Exception as e:
+                st.error(f"Erro ao carregar laborlog.xlsx: {str(e)}")
+                st.warning("O mapeamento EAN para CÓD. LABORLOG não estará disponível.")
+                ean_to_codigo = {}
+            
+            # Processar arquivos XML
+            for uploaded_file in uploaded_files:
+                xml_content = uploaded_file.read().decode('utf-8')
                 xml_content = re.sub(r'^\xef\xbb\xbf', '', xml_content)
                 
                 with st.spinner(f"Processando arquivo {uploaded_file.name}..."):
-                    # Parse XML and generate data
                     parsed_data = parse_nfe_xml(xml_content)
                     
                     if parsed_data:
@@ -327,22 +337,41 @@ def main():
                         st.error(f"Falha ao analisar o arquivo {uploaded_file.name}. Verifique se é um arquivo XML de NFe válido.")
             
             if all_data:
-                # Generate DataFrame from all parsed data
-                df = generate_csv(all_data)
+                # Converter dados para DataFrame
+                df = pd.DataFrame(all_data)
                 
-                # Perform "PROCV" operation
-                if 'EAN' in laborlog_df.columns and 'CÓD. LABORLOG' in laborlog_df.columns:
-                    ean_to_cod = laborlog_df.set_index('EAN')['CÓD. LABORLOG'].to_dict()
-                    # Map 'forn_ie' to 'item_codigo' and replace missing values with "ERRO"
-                    df['item_codigo'] = df['forn_ie'].map(ean_to_cod).fillna("ERRO")
+                # Aplicar o PROCV utilizando o EAN para cada linha
+                # Adicionar uma coluna para mostrar quais códigos EAN foram encontrados/não encontrados
+                df['status_procv'] = ''
                 
-                # Display sample of data in tabular format
+                if ean_to_codigo:
+                    for idx, row in df.iterrows():
+                        if 'item_ean' in row and row['item_ean'] and str(row['item_ean']).strip() in ean_to_codigo:
+                            # Se o EAN existe no dicionário, substituir o valor de item_codigo
+                            df.at[idx, 'item_codigo'] = ean_to_codigo[str(row['item_ean']).strip()]
+                            df.at[idx, 'status_procv'] = 'Encontrado'
+                        else:
+                            # Se o EAN não existe ou está vazio, definir como "ERRO"
+                            df.at[idx, 'item_codigo'] = "ERRO"
+                            df.at[idx, 'status_procv'] = 'Não encontrado'
+                
+                
+                # Remover colunas temporárias antes de gerar o CSV final
+                if 'item_ean' in df.columns:
+                    df = df.drop('item_ean', axis=1)
+                if 'status_procv' in df.columns:
+                    df = df.drop('status_procv', axis=1)
+                
+                # Gerar CSV com as colunas na ordem especificada
+                final_df = generate_csv(df.to_dict('records'))
+                
+                # Mostrar prévia dos dados
                 st.subheader("Visualização dos Dados Convertidos")
-                st.dataframe(df.head(10))
+                st.dataframe(final_df.head(10))
                 
-                # Display download options
+                # Opção de download
                 st.subheader("Download")
-                csv_data = df.to_csv(index=False, sep=';', encoding='utf-8-sig')
+                csv_data = final_df.to_csv(index=False, sep=';', encoding='utf-8-sig')
                 st.download_button(
                     label="Download CSV File",
                     data=csv_data,
@@ -354,6 +383,8 @@ def main():
         
         except Exception as e:
             st.error(f"Erro ao processar os arquivos: {str(e)}")
+            import traceback
+            st.code(traceback.format_exc())
             st.write("Certifique-se de que está enviando arquivos XML de NFe válidos e que o arquivo laborlog.xlsx está presente.")
 
 if __name__ == "__main__":
