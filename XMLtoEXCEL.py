@@ -75,7 +75,7 @@ def parse_nfe_xml(xml_content):
         'nf_dt_entrada': "",  # Ensure empty
         'nf_horaentrada': "", # Ensure empty
         'nf_cfop': "",        # Will be filled from items
-        'nf_obs': inf_nfe.find('.//nfe:infAdic/nfe:infCpl', ns).text if inf_nfe.find('.//nfe:infAdic/nfe:infCpl', ns) is not None else "",
+        'nf_obs': "",
         'nf_base_icms': total.find('nfe:vBC', ns).text if total.find('nfe:vBC', ns) is not None else "0",
         'nf_valor_icms': total.find('nfe:vICMS', ns).text if total.find('nfe:vICMS', ns) is not None else "0",
         'nf_valor_total': total.find('nfe:vNF', ns).text if total.find('nfe:vNF', ns) is not None else "0",
