@@ -295,97 +295,194 @@ def main():
     # Update the title
     st.title("Conversor XML-CSV Solution")
     st.write("Faça upload de arquivos XML de Nota Fiscal Eletrônica (NFe) para convertê-los para CSV em formato tabular.")
-    
+
+    # Dropdown de seleção de cliente
+    cliente = st.selectbox(
+        "Selecione o cliente:",
+        ["Laborlog", "Cargill"],
+        help="Selecione o cliente para o qual deseja processar os arquivos XML."
+    )
+
     # Allow multiple file uploads
     uploaded_files = st.file_uploader("Escolha os arquivos XML", type="xml", accept_multiple_files=True)
     
     if uploaded_files:
         try:
             all_data = []  # List to store data from all XML files
-            
-            # Carregar o arquivo laborlog.xlsx
-            laborlog_path = "laborlog.xlsx"
-            try:
-                # Carregar a planilha laborlog.xlsx explicitamente definindo os tipos de coluna
-                laborlog_df = pd.read_excel(laborlog_path, dtype={'EAN': str, 'CÓD. LABORLOG': str})
-                st.success(f"Arquivo laborlog.xlsx carregado com sucesso. {len(laborlog_df)} registros encontrados.")
-                
-                # Criar um dicionário para o PROCV: EAN -> CÓD. LABORLOG
-                ean_to_codigo = {}
-                for index, row in laborlog_df.iterrows():
-                    if pd.notna(row['EAN']) and pd.notna(row['CÓD. LABORLOG']):
-                        ean_to_codigo[str(row['EAN']).strip()] = str(row['CÓD. LABORLOG']).strip()
-                
-                st.info(f"Mapeamento de {len(ean_to_codigo)} códigos EAN para CÓD. LABORLOG preparado.")
-                
-            except Exception as e:
-                st.error(f"Erro ao carregar laborlog.xlsx: {str(e)}")
-                st.warning("O mapeamento EAN para CÓD. LABORLOG não estará disponível.")
-                ean_to_codigo = {}
-            
-            # Processar arquivos XML
-            for uploaded_file in uploaded_files:
-                xml_content = uploaded_file.read().decode('utf-8')
-                xml_content = re.sub(r'^\xef\xbb\xbf', '', xml_content)
-                
-                with st.spinner(f"Processando arquivo {uploaded_file.name}..."):
-                    parsed_data = parse_nfe_xml(xml_content)
-                    
-                    if parsed_data:
-                        all_data.extend(parsed_data)
-                    else:
-                        st.error(f"Falha ao analisar o arquivo {uploaded_file.name}. Verifique se é um arquivo XML de NFe válido.")
-            
-            if all_data:
-                # Converter dados para DataFrame
-                df = pd.DataFrame(all_data)
-                
-                # Aplicar o PROCV utilizando o EAN para cada linha
-                # Adicionar uma coluna para mostrar quais códigos EAN foram encontrados/não encontrados
-                df['status_procv'] = ''
-                
-                if ean_to_codigo:
-                    for idx, row in df.iterrows():
-                        if 'item_ean' in row and row['item_ean'] and str(row['item_ean']).strip() in ean_to_codigo:
-                            # Se o EAN existe no dicionário, substituir o valor de item_codigo
-                            df.at[idx, 'item_codigo'] = ean_to_codigo[str(row['item_ean']).strip()]
-                            df.at[idx, 'status_procv'] = 'Encontrado'
+
+            if cliente == "Laborlog":
+                # Carregar o arquivo laborlog.xlsx
+                laborlog_path = "laborlog.xlsx"
+                try:
+                    # Carregar a planilha laborlog.xlsx explicitamente definindo os tipos de coluna
+                    laborlog_df = pd.read_excel(laborlog_path, dtype={'EAN': str, 'CÓD. LABORLOG': str})
+                    st.success(f"Arquivo laborlog.xlsx carregado com sucesso. {len(laborlog_df)} registros encontrados.")
+
+                    # Criar um dicionário para o PROCV: EAN -> CÓD. LABORLOG
+                    ean_to_codigo = {}
+                    for index, row in laborlog_df.iterrows():
+                        if pd.notna(row['EAN']) and pd.notna(row['CÓD. LABORLOG']):
+                            ean_to_codigo[str(row['EAN']).strip()] = str(row['CÓD. LABORLOG']).strip()
+
+                    st.info(f"Mapeamento de {len(ean_to_codigo)} códigos EAN para CÓD. LABORLOG preparado.")
+
+                except Exception as e:
+                    st.error(f"Erro ao carregar laborlog.xlsx: {str(e)}")
+                    st.warning("O mapeamento EAN para CÓD. LABORLOG não estará disponível.")
+                    ean_to_codigo = {}
+
+                # Processar arquivos XML para Laborlog
+                for uploaded_file in uploaded_files:
+                    xml_content = uploaded_file.read().decode('utf-8')
+                    xml_content = re.sub(r'^\xef\xbb\xbf', '', xml_content)
+
+                    with st.spinner(f"Processando arquivo {uploaded_file.name}..."):
+                        parsed_data = parse_nfe_xml(xml_content)
+
+                        if parsed_data:
+                            all_data.extend(parsed_data)
                         else:
-                            # Se o EAN não existe ou está vazio, definir como "ERRO"
-                            df.at[idx, 'item_codigo'] = "ERRO"
-                            df.at[idx, 'status_procv'] = 'Não encontrado'
-                
-                
-                # Remover colunas temporárias antes de gerar o CSV final
-                if 'item_ean' in df.columns:
-                    df = df.drop('item_ean', axis=1)
-                if 'status_procv' in df.columns:
-                    df = df.drop('status_procv', axis=1)
-                
-                # Gerar CSV com as colunas na ordem especificada
-                final_df = generate_csv(df.to_dict('records'))
-                
+                            st.error(f"Falha ao analisar o arquivo {uploaded_file.name}. Verifique se é um arquivo XML de NFe válido.")
+
+                if all_data:
+                    # Converter dados para DataFrame
+                    df = pd.DataFrame(all_data)
+
+                    # Aplicar o PROCV utilizando o EAN para cada linha
+                    # Adicionar uma coluna para mostrar quais códigos EAN foram encontrados/não encontrados
+                    df['status_procv'] = ''
+
+                    if ean_to_codigo:
+                        for idx, row in df.iterrows():
+                            if 'item_ean' in row and row['item_ean'] and str(row['item_ean']).strip() in ean_to_codigo:
+                                # Se o EAN existe no dicionário, substituir o valor de item_codigo
+                                df.at[idx, 'item_codigo'] = ean_to_codigo[str(row['item_ean']).strip()]
+                                df.at[idx, 'status_procv'] = 'Encontrado'
+                            else:
+                                # Se o EAN não existe ou está vazio, definir como "ERRO"
+                                df.at[idx, 'item_codigo'] = "ERRO"
+                                df.at[idx, 'status_procv'] = 'Não encontrado'
+
+                    # Remover colunas temporárias antes de gerar o CSV final
+                    if 'item_ean' in df.columns:
+                        df = df.drop('item_ean', axis=1)
+                    if 'status_procv' in df.columns:
+                        df = df.drop('status_procv', axis=1)
+
+                    # Gerar CSV com as colunas na ordem especificada
+                    final_df = generate_csv(df.to_dict('records'))
+
+            elif cliente == "Cargill":
+                # Importar funções do xmlCARGILL.py
+                try:
+                    from xmlCARGILL import parse_nfe_xml as parse_cargill_xml
+
+                    # Processar arquivos XML para Cargill
+                    for uploaded_file in uploaded_files:
+                        # Salvar arquivo temporário para processamento
+                        xml_content = uploaded_file.read().decode('utf-8')
+
+                        # Salvar em arquivo temporário
+                        temp_filename = f"temp_{uploaded_file.name}"
+                        with open(temp_filename, 'w', encoding='utf-8') as f:
+                            f.write(xml_content)
+
+                        with st.spinner(f"Processando arquivo {uploaded_file.name} para Cargill..."):
+                            parsed_data = parse_cargill_xml(temp_filename)
+
+                            if parsed_data:
+                                all_data.extend(parsed_data)
+                            else:
+                                st.error(f"Falha ao analisar o arquivo {uploaded_file.name}. Verifique se é um arquivo XML de NFe válido.")
+
+                        # Limpar arquivo temporário
+                        import os
+                        try:
+                            os.remove(temp_filename)
+                        except:
+                            pass
+
+                    if all_data:
+                        # Converter dados para DataFrame
+                        df = pd.DataFrame(all_data)
+
+                        # Definir ordem das colunas (incluindo as novas colunas de infAdic)
+                        colunas_ordenadas = [
+                            'numero_nfe', 'serie', 'data_emissao', 'emit_cnpj', 'emit_nome',
+                            'dest_cnpj', 'dest_nome', 'valor_total_nfe', 'icms_desonerado_total',
+                            'item_nfe', 'codigo_produto', 'descricao_produto', 'ncm', 'cest', 'fci',
+                            'cfop', 'unidade_comercial', 'quantidade_comercial', 'valor_unitario_comercial',
+                            'valor_produto', 'pedido_compra', 'item_pedido',
+                            'infadic_produto', 'infadic_lote', 'infadic_qtd', 'infadic_unidade',
+                            'icms_origem', 'icms_cst', 'icms_desonerado', 'motivo_desoneracao',
+                            'ipi_cst', 'pis_cst', 'pis_base_calculo', 'pis_aliquota', 'pis_valor',
+                            'cofins_cst', 'cofins_base_calculo', 'cofins_aliquota', 'cofins_valor'
+                        ]
+
+                        # Reordenar colunas (apenas as que existem)
+                        colunas_existentes = [col for col in colunas_ordenadas if col in df.columns]
+                        final_df = df[colunas_existentes]
+
+                except ImportError as e:
+                    st.error(f"Erro ao importar o módulo xmlCARGILL.py: {str(e)}")
+                    st.error("Certifique-se de que o arquivo xmlCARGILL.py está no mesmo diretório.")
+                    return
+                except Exception as e:
+                    st.error(f"Erro ao processar arquivos Cargill: {str(e)}")
+                    return
+
+            # Mostrar resultados se houver dados
+            if all_data:
                 # Mostrar prévia dos dados
                 st.subheader("Visualização dos Dados Convertidos")
                 st.dataframe(final_df.head(10))
-                
+
                 # Opção de download
                 st.subheader("Download")
-                csv_data = final_df.to_csv(index=False, sep=';', encoding='utf-8-sig')
-                st.download_button(
-                    label="Download CSV File",
-                    data=csv_data,
-                    file_name="nfe_data.csv",
-                    mime="text/csv"
-                )
+                if cliente == "Laborlog":
+                    filename = "nfe_data_laborlog.csv"
+                    csv_data = final_df.to_csv(index=False, sep=';', encoding='utf-8-sig')
+                    st.download_button(
+                        label="Download CSV File",
+                        data=csv_data,
+                        file_name=filename,
+                        mime="text/csv"
+                    )
+                else:  # Cargill
+                    # Download Excel
+                    excel_filename = "nfe_data_cargill.xlsx"
+                    buffer = io.BytesIO()
+                    with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+                        final_df.to_excel(writer, index=False, sheet_name='Dados NFe')
+                    excel_data = buffer.getvalue()
+
+                    st.download_button(
+                        label="Download Excel File",
+                        data=excel_data,
+                        file_name=excel_filename,
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    )
+
+                    # Também permitir download em CSV
+                    csv_filename = "nfe_data_cargill.csv"
+                    csv_data = final_df.to_csv(index=False, sep=';', encoding='utf-8-sig')
+                    st.download_button(
+                        label="Download CSV File",
+                        data=csv_data,
+                        file_name=csv_filename,
+                        mime="text/csv"
+                    )
             else:
                 st.error("Nenhum dado válido foi extraído dos arquivos XML.")
-        
+
         except Exception as e:
             st.error(f"Erro ao processar os arquivos: {str(e)}")
             import traceback
             st.code(traceback.format_exc())
-            st.write("Certifique-se de que está enviando arquivos XML de NFe válidos e que o arquivo laborlog.xlsx está presente.")
+            if cliente == "Laborlog":
+                st.write("Certifique-se de que está enviando arquivos XML de NFe válidos e que o arquivo laborlog.xlsx está presente.")
+            else:
+                st.write("Certifique-se de que está enviando arquivos XML de NFe válidos.")
 
 if __name__ == "__main__":
     main()
